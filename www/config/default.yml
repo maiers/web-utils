@@ -1,0 +1,20 @@
+%YAML 1.2
+
+languageFiles:
+  path: "test/i18n/"
+  pattern: "/^lang_([a-z]{2}(-[a-zA-Z]{2})?).ini$/"
+
+codeFiles:
+  paths:
+    - "test/www"
+  include:
+    - "/(js|html|php|class|tpl|json)$/"
+  exclude:
+    - "/\/srv\/www\/assets\//"
+    - "/(png|jpg|gif)$/"
+
+lineEnding: "\r\n"
+
+keys:
+  replace:
+    lang_test_one: "lang_replaced_test_one"
