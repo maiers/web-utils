@@ -20,169 +20,24 @@ and open the template in the editor.
     </head>
     <body>
         <?php
-        
-        require_once('../vendor/autoload.php');
-        
-        // handle config
-        $configPath = "config";
-        $configs = glob("$configPath/*.yml", GLOB_BRACE);
-        $defaultConfigPath = "$configPath/default.yml";
-        $activeConfigPath = (array_key_exists("config", $_POST)) ? filter_input(INPUT_POST, "config", FILTER_SANITIZE_STRING) : $defaultConfigPath;
-        
-        if (!file_exists($activeConfigPath)) {
-            throw new Exception("Config path not set");
-        }
-        
-        // load config
-        $activeConfig = Spyc::YAMLLoad($activeConfigPath);
-        
-        // set variables
-        $languageFiles = $activeConfig["languageFiles"]["path"];
-        $languageFilePattern = $activeConfig["languageFiles"]["pattern"];
-        $scanFolders = $activeConfig["codeFiles"]["paths"];
-        $scanIncludePatterns = $activeConfig["codeFiles"]["include"];
-        $scanExcludePatterns = $activeConfig["codeFiles"]["exclude"];
-        $lineDelimiter = $activeConfig["lineEnding"];
-        $keyReplacement = $activeConfig["keys"]["replace"];
 
-        // read keys from language files
-        $langFiles = scandir($languageFiles);
-        $keys = [];
-        foreach ($langFiles as $file) {
-            $matches = null;
-            if (preg_match($languageFilePattern, $file, $matches)) {
-                $translation = parse_ini_file("$languageFiles/$file");
-                foreach ($translation as $key => $value) {
-                    if (strlen(trim($key)) === 0)
-                        continue;
-                    if (!array_key_exists($key, $keys)) {
-                        $keys[$key] = ["langs" => [], "usage" => 0, "replacement" => []];
-                    }
-                    $keys[$key]["langs"][] = $matches[1];
-                    if (array_key_exists($key, $keyReplacement)) {
-                        $keys[$key]["replacement"] = $keyReplacement[$key];
-                    }
-                }
-            }
-        }
-
-        // get list of files
-        $codeFiles = [];
-        foreach ($scanFolders as $folder) {
-            $codeFiles = array_merge($codeFiles, dirToArray($folder, $scanIncludePatterns, $scanExcludePatterns));
-        }
-
-        // scan files for key usage
-        $scanned = [];
-        foreach ($codeFiles as $file) {
-            $result = ["path" => $file, "replaced" => 0, "keys" => ["_sum" => 0]];
-            foreach ($keys as $key => $value) {
-                $contents = file_get_contents($file);
-                $lines = explode($lineDelimiter, $contents);
-                for ($i = 0; $i < count($lines); $i++) {
-                    $line = $lines[$i];
-                    $count = 0;
-                    if (($count = preg_match_all("/$key/", $line)) > 0) {
-                        $firstLine = max(0, $i - 1);
-                        $context = array_slice($lines, $firstLine, 3);
-                        $context = implode($lineDelimiter, $context);
-                        $context = htmlspecialchars($context);
-                        //echo "$line<br>$i<br>$file<br>$key<br>$context<hr>";
-                        $keys[$key]["usage"] += $count;
-                        $result["keys"]["_sum"] += $count;
-                        if (!array_key_exists($key, $result["keys"])) {
-                            $result["keys"][$key] = 0;
-                        }
-                        $result["keys"][$key] += $count;
-                        // key is to be replace
-                        if (array_key_exists($key, $keyReplacement)) {
-                            preg_replace_callback("/$key/", function() {
-                                global $key, $result, $keyReplacement;
-                                $result["replaced"] ++;
-                                return $keyReplacement[$key];
-                            }, $line);
-                        }
-                    }
-                }
-            }
-            $scanned[] = $result;
-        }
-
-        /**
-         * Create a flat array of all files matching the provided patterns
-         * within the provided directory and all of its sub-directories using
-         * recursion.
-         * 
-         * Will remove all files matching any of the exclude patterns. Will
-         * only include those files matching at least one of the include 
-         * patterns.
-         * 
-         * Patterns are provided as arrays of regex string patterns.
-         * 
-         * @param string $dir to start with
-         * @param array $includePatterns
-         * @param array $excludePatterns
-         * @return array
-         */
-        function dirToArray($dir, $includePatterns, $excludePatterns) {
-            $out = [];
-            $files = scandir($dir);
-            foreach ($files as $file) {
-                if (!in_array($file, array(".", ".."))) {
-                    $sub = "$dir/$file";
-                    //echo $sub . "<br>";
-                    if (is_dir($sub)) {
-                        $out = array_merge($out, dirToArray($sub, $includePatterns, $excludePatterns));
-                    } else {
-                        $exclude = false;
-                        foreach ($excludePatterns as $pattern) {
-                            if (preg_match($pattern, $sub)) {
-                                $exclude = true;
-                                break;
-                            }
-                        }
-                        if (!$exclude) {
-                            foreach ($includePatterns as $pattern) {
-                                if (preg_match($pattern, $sub)) {
-                                    $out[] = $sub;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return $out;
-        }
+          require_once('api/config.php');
+        
         ?>
 
         <script>
-
-            <?php
-            
-                // create a non assoziative copy of the keys array
-                $flatKeys = array_map(function($key, $value) {
-                    $value["key"] = $key;
-                    return $value;
-                }, array_keys($keys), $keys);
-            
-            ?>
-
-            var keys = <?= json_encode($flatKeys, JSON_PRETTY_PRINT) ?>;
-
-            var scanned = <?= json_encode($scanned, JSON_PRETTY_PRINT) ?>;
 
         </script>
 
         <div class="container">
 
             <h1>Configs <small>from you config folder</small></h1>
-            <form action="index.php" method="POST">
+            <form action="index.php" method="GET">
                 <select id="config" name="config" class="form-control">
-                    <?php foreach ($configs as $config) { 
+                    <?php $i = 0; foreach ($configs as $config) { 
                         $selected = ($config === $activeConfigPath) ? " selected='selected'" : "";
                     ?>
-                    <option<?= $selected ?>><?= $config ?></option>
+                    <option<?= $selected ?> value="<?= $i++ ?>"><?= $config ?></option>
                     <?php } ?>
                 </select>
             </form>
@@ -224,6 +79,8 @@ and open the template in the editor.
         <script src="inc/bootstrap/js/bootstrap.min.js"></script>
         <script src="inc/bootstrap-tagsinput/bootstrap-tagsinput.min.js"></script>
         <script>
+          
+            var keys = [], scanned = [], configId = <?= $activeConfigId ?>;
 
             /**
              * Event handling
@@ -346,8 +203,11 @@ and open the template in the editor.
 
             // initially fill the tables
             updateCode(scanned);
-            updateKeys(keys);
-
+            
+            $.get('api/keys.php?config=' + configId).success(function (d) {
+              keys = d;
+              updateKeys(keys);
+            });
 
         </script>
 

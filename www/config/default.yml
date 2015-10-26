@@ -1,12 +1,12 @@
 %YAML 1.2
 
 languageFiles:
-  path: "test/i18n/"
+  path: "../test/i18n/"
   pattern: "/^lang_([a-z]{2}(-[a-zA-Z]{2})?).ini$/"
 
 codeFiles:
   paths:
-    - "test/www"
+    - "../test/www"
   include:
     - "/(js|html|php|class|tpl|json)$/"
   exclude:
